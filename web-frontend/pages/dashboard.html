@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard - Visitas</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="../css/styles.css" rel="stylesheet" />
+  <style>
+    .card-dashboard {
+      background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: .25rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    .card-title-dashboard {
+      font-size: 1.25rem;
+      margin-bottom: .5rem;
+    }
+    .card-value-dashboard {
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #007bff;
+    }
+    .status-finalizada { color: green; }
+    .status-en-sitio { color: orange; }
+    .status-pendiente { color: gray; }
+  </style>
+
+  <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-TQLZHRQRF8"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-TQLZHRQRF8');
+</script>
+
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="#">Dashboard</a>
+    <div class="d-flex">
+      <button id="btnDashboard" class="btn btn-primary me-2" style="display: none;">Dashboard</button>
+      <button id="btnVisits" class="btn btn-outline-secondary me-2" style="display: none;">Visitas</button>
+      <button id="btnClients" class="btn btn-outline-secondary me-2" style="display: none;">Clientes</button>
+      <button id="btnUsers" class="btn btn-outline-secondary me-2" style="display: none;">Usuarios</button>
+      <button id="btnSettings" class="btn btn-outline-secondary me-2" style="display: none;">Configuraciones</button>
+      <button id="btnLogout" class="btn btn-danger" style="display: none;">Cerrar sesión</button>
+    </div>
+  </div>
+</nav>
+
+<div class="container mt-4">
+  <div id="alert-placeholder"></div>
+  
+  <h2 id="welcomeMessage" class="mb-4"></h2>
+
+  <div id="admin-dashboard-section" style="display: none;">
+    <h3>Resumen General del Sistema</h3>
+    <div class="row">
+      <div class="col-md-4">
+        <div class="card card-dashboard text-center">
+          <div class="card-title-dashboard">Total de Usuarios</div>
+          <div id="totalUsers" class="card-value-dashboard"></div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card card-dashboard text-center">
+          <div class="card-title-dashboard">Total de Clientes</div>
+          <div id="totalClients" class="card-value-dashboard"></div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card card-dashboard text-center">
+          <div class="card-title-dashboard">Total de Visitas</div>
+          <div id="totalVisitsSystem" class="card-value-dashboard"></div>
+        </div>
+      </div>
+    </div>
+
+    <h4>Visitas por Estado (Sistema)</h4>
+    <ul id="visitsByStatusSystem" class="list-group mb-4">
+    </ul>
+
+    <h4>Todas las Visitas</h4>
+    <table class="table table-striped" id="allVisitsTable">
+      <thead>
+        <tr><th>ID</th><th>Cliente</th><th>Técnico</th><th>Supervisor</th><th>Programada</th><th>Estado</th><th>Acciones</th></tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+  </div>
+
+  <div id="user-dashboard-section" style="display: none;">
+    <h3>Mis Visitas / Visitas de mi Equipo</h3>
+    <div class="row">
+      <div class="col-md-6">
+        <div class="card card-dashboard text-center">
+          <div class="card-title-dashboard">Visitas Asignadas</div>
+          <div id="totalVisitsAssigned" class="card-value-dashboard"></div>
+        </div>
+      </div>
+    </div>
+
+    <h4>Visitas por Estado (Asignadas)</h4>
+    <ul id="visitsByStatusAssigned" class="list-group mb-4">
+    </ul>
+
+    <h4>Detalle de Visitas Asignadas</h4>
+    <table class="table table-striped" id="assignedVisitsDetailTable">
+      <thead>
+        <tr><th>ID</th><th>Cliente</th><th>Técnico</th><th>Supervisor</th><th>Programada</th><th>Estado</th><th>Acciones</th></tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script src="../js/app.js"></script>
+<script src="../js/api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(async function(){
+
+  if (!sessionStorage.getItem('jwt')) { window.location='../index.html'; return; }
+
+  const alertPlace = document.getElementById('alert-placeholder');
+  const welcomeMessageEl = document.getElementById('welcomeMessage');
+  const adminDashboardSection = document.getElementById('admin-dashboard-section');
+  const userDashboardSection = document.getElementById('user-dashboard-section');
+
+  async function loadDashboard() {
+    try {
+      const dashboardData = await apiGet('/dashboard'); 
+      renderDashboard(dashboardData);
+      assignDetailButtonListeners();
+    } catch (e) {
+      window.showAlert(e.message || e, 'danger', 'alert-placeholder');
+    }
+  }
+
+  function renderDashboard(data) {
+    welcomeMessageEl.innerText = data.welcomeMessage;
+
+    adminDashboardSection.style.display = 'none';
+    userDashboardSection.style.display = 'none';
+
+    if (data.role === 'ADMIN') {
+      adminDashboardSection.style.display = 'block';
+      document.getElementById('totalUsers').innerText = data.totalUsers;
+      document.getElementById('totalClients').innerText = data.totalClients;
+      document.getElementById('totalVisitsSystem').innerText = data.totalVisitsSystem;
+      
+      const visitsByStatusSystemEl = document.getElementById('visitsByStatusSystem');
+      visitsByStatusSystemEl.innerHTML = '';
+      if (data.visitsByStatusSystem && data.visitsByStatusSystem.length > 0) {
+        data.visitsByStatusSystem.forEach(s => {
+          visitsByStatusSystemEl.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center">
+            ${window.escapeHtml(s.status)} <span class="badge bg-primary rounded-pill">${s.count}</span>
+          </li>`;
+        });
+      } else {
+         visitsByStatusSystemEl.innerHTML = '<li class="list-group-item text-muted">No hay resumen de visitas por estado.</li>';
+      }
+
+
+      const allVisitsTableBody = document.querySelector('#allVisitsTable tbody');
+      allVisitsTableBody.innerHTML = renderVisitTableRows(data.assignedVisitsDetail, true, data.role); 
+    } else if (data.role === 'SUPERVISOR' || data.role === 'TECNICO' || data.role === 'TECH') {
+      userDashboardSection.style.display = 'block';
+      document.getElementById('totalVisitsAssigned').innerText = data.totalVisitsAssigned;
+
+      const visitsByStatusAssignedEl = document.getElementById('visitsByStatusAssigned');
+      visitsByStatusAssignedEl.innerHTML = '';
+      if (data.visitsByStatusAssigned && data.visitsByStatusAssigned.length > 0) {
+        data.visitsByStatusAssigned.forEach(s => {
+          visitsByStatusAssignedEl.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center">
+            ${window.escapeHtml(s.status)} <span class="badge bg-primary rounded-pill">${s.count}</span>
+          </li>`;
+        });
+      } else {
+        visitsByStatusAssignedEl.innerHTML = '<li class="list-group-item text-muted">No hay resumen de visitas por estado.</li>';
+      }
+
+      const assignedVisitsDetailTableBody = document.querySelector('#assignedVisitsDetailTable tbody');
+      assignedVisitsDetailTableBody.innerHTML = renderVisitTableRows(data.assignedVisitsDetail, false, data.role);
+    } else {
+        welcomeMessageEl.innerText = "No se pudo cargar el dashboard para su rol.";
+    }
+  }
+
+  function renderVisitTableRows(visits, isAdmin, userRole) { 
+    if (!visits || visits.length === 0) {
+      return `<tr><td colspan="${isAdmin ? '6' : '7'}" class="text-center">No hay visitas para mostrar.</td></tr>`;
+    }
+    return visits.map(v => {
+      const statusClass = v.status === 'Finalizada' ? 'status-finalizada' : v.status === 'En sitio' ? 'status-en-sitio' : 'status-pendiente';
+      const actionsColumn = (isAdmin || !userRole || (userRole !== 'SUPERVISOR' && userRole !== 'TECNICO' && userRole !== 'TECH')) 
+                            ? '' 
+                            : `<td><button class="btn btn-sm btn-info btn-detail" data-id="${v.id}">Ver Detalle</button></td>`;
+
+      return `<tr>
+        <td>${v.id}</td>
+        <td>${window.escapeHtml(v.clientName || 'N/A')}</td>
+        <td>${window.escapeHtml(v.technicianUsername || 'N/A')}</td>
+        <td>${window.escapeHtml(v.supervisorUsername || 'N/A')}</td>
+        <td>${v.scheduledAt ? v.scheduledAt.replace('T',' ') : ''}</td>
+        <td class="${statusClass}">${window.escapeHtml(v.status)}</td>
+        ${actionsColumn}
+      </tr>`;
+    }).join('');
+  }
+
+  function assignDetailButtonListeners() {
+    
+    document.querySelectorAll('#assignedVisitsDetailTable .btn-detail').forEach(button => {
+        button.addEventListener('click', e => {
+            window.location=`visit-detail.html?id=${e.target.dataset.id}`;
+        });
+    });
+
+  }
+
+  loadDashboard();
+})();
+</script>
+</body>
+</html>
